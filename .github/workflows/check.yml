@@ -1,0 +1,18 @@
+name: check-codeberg
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Try codeberg
+        run: |
+          U=https://codeberg.org/dnkl/foot/archive/1.28.0.tar.gz
+          for i in 1 2; do
+            curl -sS -L --max-time 60 -o foot.tgz -w "plain $i: code %{http_code} size %{size_download} time %{time_total}\n" $U || echo "plain $i failed"
+          done
+          curl -sS -L --max-time 60 -A "Mozilla/5.0" -o foot2.tgz -w "browser-UA: code %{http_code} size %{size_download} time %{time_total}\n" $U || echo "browser-UA failed"
+          ls -la foot*.tgz || true
+      - name: How ncurses uses foot
+        run: |
+          git clone --depth 1 https://github.com/termux/termux-packages.git tp
+          grep -n "codeberg\|foot" tp/packages/ncurses/build.sh | head -30
