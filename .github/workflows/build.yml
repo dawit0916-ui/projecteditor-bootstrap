@@ -1,0 +1,73 @@
+name: build-bootstrap
+on:
+  workflow_dispatch:
+
+env:
+  APP_ID: com.projecteditor.app
+
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: termux/termux-app
+          ref: master
+      - name: Build libtermux.so
+        run: |
+      - name: Build libproeditterminal.so
+        run: |
+          BIN="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          SRC=terminal-emulator/src/main/jni/termux.c
+          sed -i 's/com_termux_terminal/com_projecteditor_terminal/g; s#com/termux/terminal#com/projecteditor/terminal#g' $SRC
+          grep -n "projecteditor" $SRC | head
+          mkdir -p out/arm64-v8a out/armeabi-v7a
+          "$BIN/aarch64-linux-android21-clang" -shared -fPIC -Os -o out/arm64-v8a/libproeditterminal.so $SRC
+          "$BIN/armv7a-linux-androideabi21-clang" -shared -fPIC -Os -o out/armeabi-v7a/libproeditterminal.so $SRC
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libtermux
+          path: out
+
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64, arm]
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h /
+      - name: Get termux-packages
+        run: git clone --depth 1 https://github.com/termux/termux-packages.git tp
+      - name: Set app id
+        working-directory: tp
+        run: |
+          grep -n "com.termux" scripts/properties.sh || true
+          sed -i "s/\"com\.termux\"/\"$APP_ID\"/" scripts/properties.sh
+          grep -n "$APP_ID" scripts/properties.sh
+      - name: Show bootstrap script options
+        working-directory: tp
+        run: |
+          ls scripts
+          ./scripts/generate-bootstraps.sh --help || true
+      - name: Build base packages
+        working-directory: tp
+        run: |
+          ./scripts/run-docker.sh ./build-package.sh -a ${{ matrix.arch }} -o output \
+            apt bash coreutils dash dpkg findutils grep sed gawk tar gzip bzip2 \
+            xz-utils curl less util-linux diffutils termux-tools termux-exec termux-keyring
+      - name: Generate bootstrap zip
+        working-directory: tp
+        run: |
+          ./scripts/run-docker.sh ./scripts/generate-bootstraps.sh \
+            --architectures ${{ matrix.arch }} \
+            --repository "file:///home/builder/termux-packages/output"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-${{ matrix.arch }}
+          path: tp/bootstrap-*.zip
