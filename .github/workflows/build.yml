@@ -50,6 +50,14 @@ jobs:
           grep -n "com.termux" scripts/properties.sh || true
           sed -i "s/\"com\.termux\"/\"$APP_ID\"/" scripts/properties.sh
           grep -n "$APP_ID" scripts/properties.sh
+      - name: Drop foot terminfo from ncurses
+        working-directory: tp
+        run: |
+          grep -n foot packages/ncurses/build.sh
+          sed -i '/foot/d' packages/ncurses/build.sh
+          bash -n packages/ncurses/build.sh && echo "syntax ok"
+          grep -c foot packages/ncurses/build.sh || true
+          git diff --stat
       - name: Show bootstrap script options
         working-directory: tp
         run: |
