@@ -4,7 +4,21 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Show ncurses build.sh
+      - name: Clone and patch ncurses
         run: |
           git clone --depth 1 https://github.com/termux/termux-packages.git tp
-          cat -n tp/packages/ncurses/build.sh | sed -n '1,50p;100,150p'
+          cd tp
+          python3 - <<'PY'
+          import re
+          p='packages/ncurses/build.sh'
+          s=open(p).read()
+          s,n1=re.subn(r'\n[ \t]*"\$\(\. "\$TERMUX_SCRIPTDIR/x11-packages/foot/build\.sh"; echo "\$TERMUX_PKG_(?:VERSION|SRCURL|SHA256)"\)"\)',')',s)
+          s,n2=re.subn(r'\n[ \t]*# Upstream instructions for building foot.*?tic -x -e foot,foot-direct -o "\$TI" -','',s,flags=re.S)
+          print(n1,n2)
+          assert n1==3 and n2==1
+          open(p,'w').write(s)
+          PY
+          bash -n packages/ncurses/build.sh
+          echo "syntax ok"
+          grep -n foot packages/ncurses/build.sh || true
+          sed -n '14,32p' packages/ncurses/build.sh
