@@ -109,6 +109,10 @@ jobs:
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
+                - name: Pack the .deb files
+        run: cd tp/output && tar -cf ../../debs-${{ matrix.arch }}.tar *.deb
+      - uses: actions/upload-artifact@v4
+        with:
           name: debs-${{ matrix.arch }}
-          path: tp/output/*.deb
+          path: debs-${{ matrix.arch }}.tar
           retention-days: 14
