@@ -101,22 +101,14 @@ jobs:
           grep -n -i -E "error|failed|no space|fatal" build.log | tail -40
           tail -60 build.log
           df -h /
-      - name: Generate bootstrap zip
-        working-directory: tp
-        run: |
-          set -o pipefail
-          ./scripts/run-docker.sh ./scripts/generate-bootstraps.sh \
-            --architectures ${{ matrix.arch }} \
-            --repository "file:///home/builder/termux-packages/output" 2>&1 | tee bootstrap.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: logs-${{ matrix.arch }}
-          path: |
-            tp/build.log
-            tp/bootstrap.log
+          path: tp/build.log
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
-          name: bootstrap-${{ matrix.arch }}
-          path: tp/bootstrap-*.zip
+          name: debs-${{ matrix.arch }}
+          path: tp/output/*.deb
+          retention-days: 14

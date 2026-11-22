@@ -1,0 +1,67 @@
+name: assemble-bootstrap
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Number from the build-bootstrap run URL"
+        required: true
+
+env:
+  APP_ID: com.projecteditor.app
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64, arm]
+    steps:
+      - name: Get termux-packages
+        run: git clone --depth 1 https://github.com/termux/termux-packages.git tp
+      - name: Set app id
+        working-directory: tp
+        run: |
+          sed -i "s/\"com\.termux\"/\"$APP_ID\"/" scripts/properties.sh
+          grep -n "$APP_ID" scripts/properties.sh | head -3
+      - uses: actions/download-artifact@v4
+        with:
+          name: debs-${{ matrix.arch }}
+          path: tp/output
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Make the APT index
+        working-directory: tp/output
+        run: |
+          sudo apt-get install -y dpkg-dev > /dev/null
+          ls | head -60
+          for a in all ${{ matrix.arch }}; do
+            mkdir -p dists/stable/main/binary-$a
+            dpkg-scanpackages --multiversion -a $a . /dev/null > dists/stable/main/binary-$a/Packages
+            echo "binary-$a: $(grep -c '^Package:' dists/stable/main/binary-$a/Packages) packages"
+          done
+          head -12 dists/stable/main/binary-${{ matrix.arch }}/Packages
+      - name: Show how the script reads the index
+        working-directory: tp
+        run: grep -n -i "Filename\|dists\|Packages" scripts/generate-bootstraps.sh | head -30
+      - name: Generate bootstrap zip
+        working-directory: tp
+        run: |
+          set -o pipefail
+          ./scripts/run-docker.sh ./scripts/generate-bootstraps.sh \
+            --architectures ${{ matrix.arch }} --pm apt \
+            --repository "file:///home/builder/termux-packages/output" 2>&1 | tee bootstrap.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logs-assemble-${{ matrix.arch }}
+          path: tp/bootstrap.log
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-${{ matrix.arch }}
+          path: tp/bootstrap-*.zip
