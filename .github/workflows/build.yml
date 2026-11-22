@@ -75,9 +75,11 @@ jobs:
         run: |
           ok=1
           for p in apt bash coreutils dash dpkg findutils grep sed gawk tar gzip libbz2 \
-                   xz-utils curl less util-linux diffutils termux-tools termux-exec termux-keyring; do
+                   liblzma libcurl less util-linux diffutils termux-tools termux-exec termux-keyring; do
             if [ -d "packages/$p" ]; then echo "ok $p"; else echo "MISSING $p"; ok=0; fi
           done
+          echo "--- confirm sub-packages:"
+          ls packages/liblzma/ packages/libcurl/ | grep -E "xz-utils|curl" || true
           [ "$ok" = 1 ]
       - name: Show bootstrap script options
         working-directory: tp
@@ -90,11 +92,12 @@ jobs:
           set -o pipefail
           ./scripts/run-docker.sh ./build-package.sh -a ${{ matrix.arch }} -o output \
             apt bash coreutils dash dpkg findutils grep sed gawk tar gzip libbz2 \
-            xz-utils curl less util-linux diffutils termux-tools termux-exec termux-keyring 2>&1 | tee build.log
+            liblzma libcurl less util-linux diffutils termux-tools termux-exec termux-keyring 2>&1 | tee build.log
       - name: Show error summary
         if: failure()
         working-directory: tp
         run: |
+          [ -f build.log ] || { echo "no build.log yet"; exit 0; }
           grep -n -i -E "error|failed|no space|fatal" build.log | tail -40
           tail -60 build.log
           df -h /
