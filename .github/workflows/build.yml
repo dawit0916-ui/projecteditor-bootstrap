@@ -13,8 +13,6 @@ jobs:
         with:
           repository: termux/termux-app
           ref: master
-      - name: Build libtermux.so
-        run: |
       - name: Build libproeditterminal.so
         run: |
           BIN="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
@@ -37,6 +35,7 @@ jobs:
       matrix:
         arch: [aarch64, arm]
     steps:
+      - uses: actions/checkout@v4
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL
@@ -63,6 +62,23 @@ jobs:
           open(p,'w').write(s)
           PY
           bash -n packages/ncurses/build.sh
+      - name: Apply our package overrides
+        run: |
+          if [ -d overrides ]; then
+            cp -r overrides/* tp/packages/
+            ls overrides
+          else
+            echo "no overrides, using stock packages"
+          fi
+      - name: Check package names
+        working-directory: tp
+        run: |
+          ok=1
+          for p in apt bash coreutils dash dpkg findutils grep sed gawk tar gzip libbz2 \
+                   xz-utils curl less util-linux diffutils termux-tools termux-exec termux-keyring; do
+            if [ -d "packages/$p" ]; then echo "ok $p"; else echo "MISSING $p"; ok=0; fi
+          done
+          [ "$ok" = 1 ]
       - name: Show bootstrap script options
         working-directory: tp
         run: |
@@ -71,15 +87,32 @@ jobs:
       - name: Build base packages
         working-directory: tp
         run: |
+          set -o pipefail
           ./scripts/run-docker.sh ./build-package.sh -a ${{ matrix.arch }} -o output \
-            apt bash coreutils dash dpkg findutils grep sed gawk tar gzip bzip2 \
-            xz-utils curl less util-linux diffutils termux-tools termux-exec termux-keyring
+            apt bash coreutils dash dpkg findutils grep sed gawk tar gzip libbz2 \
+            xz-utils curl less util-linux diffutils termux-tools termux-exec termux-keyring 2>&1 | tee build.log
+      - name: Show error summary
+        if: failure()
+        working-directory: tp
+        run: |
+          grep -n -i -E "error|failed|no space|fatal" build.log | tail -40
+          tail -60 build.log
+          df -h /
       - name: Generate bootstrap zip
         working-directory: tp
         run: |
+          set -o pipefail
           ./scripts/run-docker.sh ./scripts/generate-bootstraps.sh \
             --architectures ${{ matrix.arch }} \
-            --repository "file:///home/builder/termux-packages/output"
+            --repository "file:///home/builder/termux-packages/output" 2>&1 | tee bootstrap.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logs-${{ matrix.arch }}
+          path: |
+            tp/build.log
+            tp/bootstrap.log
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: bootstrap-${{ matrix.arch }}
