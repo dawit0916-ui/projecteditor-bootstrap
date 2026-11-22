@@ -1,0 +1,23 @@
+name: inspect-helpers
+on: workflow_dispatch
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        run: git clone --depth 1 https://github.com/termux/termux-packages.git tp
+      - name: Recipes
+        working-directory: tp/packages
+        run: |
+          for p in termux-tools termux-exec termux-keyring; do
+            echo "=================== $p"
+            ls $p
+            sed -n '1,45p' $p/build.sh
+          done
+      - name: Who depends on them
+        working-directory: tp/packages
+        run: |
+          for p in termux-tools termux-exec termux-keyring; do
+            echo "== depends on $p:"
+            grep -l "DEPENDS=.*$p" */build.sh | head -20
+          done
