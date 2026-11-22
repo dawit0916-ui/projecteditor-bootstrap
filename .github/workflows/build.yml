@@ -18,7 +18,6 @@ jobs:
           BIN="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
           SRC=terminal-emulator/src/main/jni/termux.c
           sed -i 's/com_termux_terminal/com_projecteditor_terminal/g; s#com/termux/terminal#com/projecteditor/terminal#g' $SRC
-          grep -n "projecteditor" $SRC | head
           mkdir -p out/arm64-v8a out/armeabi-v7a
           "$BIN/aarch64-linux-android21-clang" -shared -fPIC -Os -o out/arm64-v8a/libproeditterminal.so $SRC
           "$BIN/armv7a-linux-androideabi21-clang" -shared -fPIC -Os -o out/armeabi-v7a/libproeditterminal.so $SRC
@@ -46,9 +45,8 @@ jobs:
       - name: Set app id
         working-directory: tp
         run: |
-          grep -n "com.termux" scripts/properties.sh || true
           sed -i "s/\"com\.termux\"/\"$APP_ID\"/" scripts/properties.sh
-          grep -n "$APP_ID" scripts/properties.sh
+          grep -n "$APP_ID" scripts/properties.sh | head -3
       - name: Patch ncurses (remove foot)
         working-directory: tp
         run: |
@@ -78,14 +76,7 @@ jobs:
                    liblzma libcurl less util-linux diffutils termux-tools termux-exec termux-keyring; do
             if [ -d "packages/$p" ]; then echo "ok $p"; else echo "MISSING $p"; ok=0; fi
           done
-          echo "--- confirm sub-packages:"
-          ls packages/liblzma/ packages/libcurl/ | grep -E "xz-utils|curl" || true
           [ "$ok" = 1 ]
-      - name: Show bootstrap script options
-        working-directory: tp
-        run: |
-          ls scripts
-          ./scripts/generate-bootstraps.sh --help || true
       - name: Build base packages
         working-directory: tp
         run: |
@@ -107,9 +98,7 @@ jobs:
           name: logs-${{ matrix.arch }}
           path: tp/build.log
           if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
-        with:
-                - name: Pack the .deb files
+      - name: Pack the .deb files
         run: cd tp/output && tar -cf ../../debs-${{ matrix.arch }}.tar *.deb
       - uses: actions/upload-artifact@v4
         with:
