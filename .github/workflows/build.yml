@@ -73,7 +73,8 @@ jobs:
         run: |
           ok=1
           for p in apt bash coreutils dash dpkg findutils grep sed gawk tar gzip libbz2 \
-                   liblzma libcurl less util-linux diffutils termux-tools termux-exec termux-keyring; do
+                   liblzma libcurl less util-linux diffutils termux-tools termux-exec termux-keyring \
+                   command-not-found ed debianutils dos2unix inetutils lsof nano net-tools patch unzip; do
             if [ -d "packages/$p" ]; then echo "ok $p"; else echo "MISSING $p"; ok=0; fi
           done
           [ "$ok" = 1 ]
@@ -83,7 +84,8 @@ jobs:
           set -o pipefail
           ./scripts/run-docker.sh ./build-package.sh -a ${{ matrix.arch }} -o output \
             apt bash coreutils dash dpkg findutils grep sed gawk tar gzip libbz2 \
-            liblzma libcurl less util-linux diffutils termux-tools termux-exec termux-keyring 2>&1 | tee build.log
+            liblzma libcurl less util-linux diffutils termux-tools termux-exec termux-keyring \
+            command-not-found ed debianutils dos2unix inetutils lsof nano net-tools patch unzip 2>&1 | tee build.log
       - name: Show error summary
         if: failure()
         working-directory: tp
