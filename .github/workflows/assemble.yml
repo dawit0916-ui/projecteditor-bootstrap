@@ -52,6 +52,14 @@ jobs:
       - name: Show how the script reads the index
         working-directory: tp
         run: grep -n -i "Filename\|dists\|Packages" scripts/generate-bootstraps.sh | head -30
+      - name: List the packages the script wants
+        working-directory: tp
+        run: |
+          n=$(grep -n "command-not-found" scripts/generate-bootstraps.sh | head -1 | cut -d: -f1)
+          echo "line $n"
+          sed -n "$((n-45)),$((n+45))p" scripts/generate-bootstraps.sh
+          echo "--- built here:"
+          ls output/*.deb | sed 's#.*/##; s#_.*##' | sort -u | tr '\n' ' '
       - name: Generate bootstrap zip
         working-directory: tp
         run: |
