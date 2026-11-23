@@ -60,15 +60,21 @@ jobs:
           sed -n "$((n-45)),$((n+45))p" scripts/generate-bootstraps.sh
           echo "--- built here:"
           ls output/*.deb | sed 's#.*/##; s#_.*##' | sort -u | tr '\n' ' '
-      - name: Make folders writable for the container
-        run: chmod -R a+rwX tp
+      - name: Diagnose where the zip goes
+        working-directory: tp
+        run: |
+          grep -n "mv \|zip " scripts/generate-bootstraps.sh | head -20
+          echo "--- apparmor profile"
+          grep -n -i "termux-packages\|deny\|output" scripts/profile-restricted.apparmor | head -40
+          ls -ld . output
+          id
       - name: Generate bootstrap zip
         working-directory: tp
         run: |
           set -o pipefail
-          ./scripts/run-docker.sh ./scripts/generate-bootstraps.sh \
-            --architectures ${{ matrix.arch }} --pm apt \
-            --repository "file:///home/builder/termux-packages/output" 2>&1 | tee bootstrap.log
+          chmod -R a+rwX .
+          ./scripts/run-docker.sh bash -c 'cd output && ../scripts/generate-bootstraps.sh --architectures ${{ matrix.arch }} --pm apt --repository "file:///home/builder/termux-packages/output"' 2>&1 | tee bootstrap.log
+          ls -la output/bootstrap-*.zip
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -78,4 +84,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: bootstrap-${{ matrix.arch }}
-          path: tp/bootstrap-*.zip
+          path: |
+            tp/output/bootstrap-*.zip
+            tp/bootstrap-*.zip
